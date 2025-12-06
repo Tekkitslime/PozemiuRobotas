@@ -34,45 +34,76 @@ namespace PozemiuRobotas {
         public int X = X, Y = Y;
     }
 
+    public class ExitState(uint GID, int X, int Y) {
+        public uint GID = GID;
+        public int X = X, Y = Y;
+    }
+
+    public class PeakState(uint GID, int X, int Y, int frameCount) {
+        public uint GID = GID;
+        public int X = X, Y = Y;
+        public int frameCount = frameCount;
+        public int frame = 0;
+        public readonly float timerTime = 0.1f;
+        public float timer = 0;
+    }
+
+
+    public enum GamePlayState {
+        Play,
+        Dead,
+        Win,
+    }
+
     public class GameState {
         public readonly int tileSize = 16;
         public readonly int tilesSeen = 10;
 
-        public Loader loader;
-        public Map levelMap;
-        public Dictionary<Tileset, List<Texture2D>> tilesetTextures;
+        public Loader loader = null!;
+        public Map levelMap = null!;
+        public Dictionary<Tileset, List<Texture2D>> tilesetTextures = null!;
         public RenderTexture2D lightMask;
 
-        public List<TorchState> torches;
-        public List<DoorState> doors;
-        public List<KeyState> keys;
+        public GamePlayState gamePlayState = GamePlayState.Play;
+
+        public List<TorchState> torches = null!;
+        public List<DoorState> doors = null!;
+        public List<KeyState> keys = null!;
+        public List<PeakState> peaks = null!;
+        public ExitState exit = null!;
 
         public Vector2 spawn;
         public PlayerState playerState = null!;
 
         public GameState(string levelTMX)
         {
-            loader = Loader.Default();
+            loader = Loader.DefaultWith(resourceReader: new ResourceLoader());
             levelMap = loader.LoadMap(levelTMX);
-            tilesetTextures = [];
+            lightMask = Raylib.LoadRenderTexture(Raylib.GetScreenWidth(), Raylib.GetScreenHeight());
 
-            torches = [];
-            doors = [];
-            keys = [];
 
             var TMXDir = Path.GetDirectoryName(levelTMX)!;
             LoadTilesetTextures(TMXDir);
 
+            LoadMapState();
+        }
+
+        public void LoadMapState()
+        {
+            torches = [];
+            doors = [];
+            keys = [];
+            peaks = [];
             var objectLayer = LayerByName<ObjectLayer>("objects")!;
             var tileObjects = objectLayer.Objects.OfType<TileObject>();
 
             ParseTorches(tileObjects);
             ParseDoors(tileObjects);
             ParseKeys(tileObjects);
+            ParseExit(tileObjects);
+            ParsePeaks(tileObjects);
             ParseSpawn(objectLayer.Objects);
             ParsePlayer(tileObjects);
-
-            lightMask = Raylib.LoadRenderTexture(Raylib.GetScreenWidth(), Raylib.GetScreenHeight());
         }
 
         private void ParseTorches(IEnumerable<TileObject> tileObjects) {
@@ -96,6 +127,19 @@ namespace PozemiuRobotas {
             }
         }
 
+        private void ParseExit(IEnumerable<TileObject> tileObjects) {
+            var exitObject = tileObjects.Single(tobj => tobj.Type == "Exit");
+            exit = new ExitState(exitObject.GID, (int)exitObject.X, (int)exitObject.Y);
+        }
+
+        private void ParsePeaks(IEnumerable<TileObject> tileObjects) {
+            var peakObjects = tileObjects.Where(tobj => tobj.Type == "Peak");
+            foreach (var peak in peakObjects) {
+                var tileset = levelMap.ResolveTilesetForGlobalTileID(peak.GID, out var localTileID);
+                peaks.Add( new PeakState(peak.GID, (int)peak.X, (int)peak.Y, tileset.TileCount) );
+            }
+        }
+
         private void ParsePlayer(IEnumerable<TileObject> tileObjects) {
             var playerObject = tileObjects.Single(tobj => tobj.Type == "Player");
             playerState = new PlayerState(playerObject.GID, spawn);
@@ -108,13 +152,15 @@ namespace PozemiuRobotas {
         }
 
         private void LoadTilesetTextures(string TMXDir) {
+            tilesetTextures = [];
+            var loader = new ResourceLoader();
             foreach (var tileset in levelMap.Tilesets) {
                 if (tileset.Image.HasValue) {
                     var imageName = tileset.Image.Value.Source.Value;
                     var path = Path.Combine(TMXDir, imageName);
                     var textures = new List<Texture2D>();
                     
-                    var texture = Raylib.LoadTexture(path);
+                    var texture = loader.AdHocLoadTexutre(path);
                     textures.Add(texture);
                     tilesetTextures[tileset] = textures;
                 } else {
@@ -124,7 +170,7 @@ namespace PozemiuRobotas {
                         foreach (var tile in tileset.Tiles) {
                             var imageName = tile.Image.Value.Source.Value;
                             var path = Path.Combine(TMXDir, imageName);
-                            textures.Add(Raylib.LoadTexture(path));
+                            textures.Add(loader.AdHocLoadTexutre(path));
                         }
 
                         tilesetTextures[tileset] = textures;

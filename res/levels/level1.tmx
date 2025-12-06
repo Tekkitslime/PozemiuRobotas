@@ -6,7 +6,7 @@
  <tileset firstgid="1" name="dungeon_tileset" tilewidth="16" tileheight="16" tilecount="256" columns="16" objectalignment="topleft">
   <image source="../dungeon_atlas.png" width="256" height="256"/>
  </tileset>
- <tileset firstgid="257" name="peaks" tilewidth="16" tileheight="16" tilecount="4" columns="0">
+ <tileset firstgid="257" name="peaks" tilewidth="16" tileheight="16" tilecount="4" columns="0" objectalignment="topleft">
   <grid orientation="orthogonal" width="1" height="1"/>
   <tile id="2" type="Peak">
    <image source="../peaks/peaks_3.png" width="16" height="16"/>
@@ -124,7 +124,7 @@
     <property name="door" type="int" value="1"/>
    </properties>
   </object>
-  <object id="12" gid="259" x="384" y="176" width="16" height="16"/>
+  <object id="12" type="Peak" gid="259" x="384" y="160" width="16" height="16"/>
   <object id="15" type="Exit" gid="58" x="432" y="176" width="16" height="16"/>
   <object id="16" type="Torch" gid="2147483794" x="448" y="176" width="16" height="16"/>
   <object id="17" name="Spawn" x="128" y="192">

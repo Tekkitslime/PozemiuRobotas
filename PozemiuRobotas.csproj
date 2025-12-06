@@ -10,6 +10,7 @@
   <ItemGroup>
     <PackageReference Include="DotTiled" Version="1.0.0" />
     <PackageReference Include="Raylib-cs" Version="7.0.2" />
+    <EmbeddedResource Include="res\**\*" />
   </ItemGroup>
 
 </Project>

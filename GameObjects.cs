@@ -26,7 +26,6 @@ namespace PozemiuRobotas {
             if (Raylib.IsKeyPressed(KeyboardKey.Down)) target.Y += tSize;
 
             if (target != pState.TargetPosition) {
-                // Console.WriteLine(String.Format("{0}, {1}", pState.CurDoorOpened, pState.LastDoorOpened));
                 if (!TheWorld.IsTileSolid(gameState, target))
                 {
                     pState.TargetPosition = target;
@@ -35,6 +34,16 @@ namespace PozemiuRobotas {
                 var key = Key.IsOnKey(gameState, pState.TargetPosition);
                 if (key != null) {
                     CollectKey(gameState, key);
+                }
+
+                var exit = Exit.IsOnExit(gameState, pState.TargetPosition);
+                if (exit != null) {
+                    gameState.gamePlayState = GamePlayState.Win;
+                }
+
+                var peak = Peak.IsOnPeak(gameState, pState.TargetPosition);
+                if (peak != null) {
+                    gameState.gamePlayState = GamePlayState.Dead;
                 }
             }
 
@@ -74,12 +83,80 @@ namespace PozemiuRobotas {
         }
     }
 
+    public class Torch {
+        public static void Draw(GameState gameState) {
+            foreach (var torch in gameState.torches)
+            {
+                var tileset = gameState.levelMap.ResolveTilesetForGlobalTileID(torch.GID, out var localTileID);
+
+                var r = tileset.GetSourceRectangleForLocalTileID(localTileID);
+                var srcRect = new Rectangle(r.X, r.Y, r.Width, r.Height);
+                srcRect = FlipRect(torch.FFlags, srcRect);
+
+                var dstRect = new Rectangle(torch.X, torch.Y, r.Width, r.Height);
+
+                var texture = gameState.tilesetTextures[tileset][0];
+                Raylib.DrawTexturePro(texture, srcRect, dstRect, new Vector2(), 0, Color.White);
+            }
+        }
+
+        private static Rectangle FlipRect(FlippingFlags FFlags, Rectangle srcRect)
+        {
+            if (FFlags.HasFlag(FlippingFlags.FlippedHorizontally))
+            {
+                // srcRect.X += srcRect.Width;
+                srcRect.Width = -srcRect.Width;
+            }
+            if (FFlags.HasFlag(FlippingFlags.FlippedVertically))
+            {
+                // srcRect.Y += srcRect.Height;
+                srcRect.Height = -srcRect.Height;
+            }
+
+            return srcRect;
+        }
+    }
+
     public class Key {
         public static KeyState? IsOnKey(GameState gameState, Vector2 tileCoord) {
             foreach (var key in gameState.keys) {
                 if (tileCoord == new Vector2(key.X, key.Y)) return key;
             }
             return null;
+        }
+
+        public static void Draw(GameState gameState) {
+            foreach (var key in gameState.keys)
+            {
+                var tileset = gameState.levelMap.ResolveTilesetForGlobalTileID(key.GID, out var localTileID);
+
+                var r = tileset.GetSourceRectangleForLocalTileID(localTileID);
+                var srcRect = new Rectangle(r.X, r.Y, r.Width, r.Height);
+                var dstRect = new Rectangle(key.X, key.Y, r.Width, r.Height);
+
+                var texture = gameState.tilesetTextures[tileset][0];
+                Raylib.DrawTexturePro(texture, srcRect, dstRect, new Vector2(), 0, Color.White);
+            }
+        }
+    }
+
+    public class Exit {
+        public static ExitState? IsOnExit(GameState gameState, Vector2 tileCoord) {
+            var exit = gameState.exit;
+            if (tileCoord == new Vector2(exit.X, exit.Y)) return exit;
+            return null;
+        }
+
+        public static void Draw(GameState gameState) {
+            var exit = gameState.exit;
+            var tileset = gameState.levelMap.ResolveTilesetForGlobalTileID(exit.GID, out var localTileID);
+
+            var r = tileset.GetSourceRectangleForLocalTileID(localTileID);
+            var srcRect = new Rectangle(r.X, r.Y, r.Width, r.Height);
+            var dstRect = new Rectangle(exit.X, exit.Y, r.Width, r.Height);
+
+            var texture = gameState.tilesetTextures[tileset][0];
+            Raylib.DrawTexturePro(texture, srcRect, dstRect, new Vector2(), 0, Color.White);
         }
     }
 
@@ -93,6 +170,55 @@ namespace PozemiuRobotas {
             var doors = gameState.doors.Where(d => d.doorID == doorID);
             foreach (var door in doors) {
                 door.visible = !door.visible;
+            }
+        }
+
+        public static void Draw(GameState gameState) {
+            foreach (var door in gameState.doors)
+            {
+                if (!door.visible) continue;
+                var tileset = gameState.levelMap.ResolveTilesetForGlobalTileID(door.GID, out var localTileID);
+
+                var r = tileset.GetSourceRectangleForLocalTileID(localTileID);
+                var srcRect = new Rectangle(r.X, r.Y, r.Width, r.Height);
+                var dstRect = new Rectangle(door.X, door.Y, r.Width, r.Height);
+
+                var texture = gameState.tilesetTextures[tileset][0];
+                Raylib.DrawTexturePro(texture, srcRect, dstRect, new Vector2(), 0, Color.White);
+            }
+        }
+    }
+
+    public class Peak {
+        public static PeakState? IsOnPeak(GameState gameState, Vector2 tileCoord) {
+            foreach (var peak in gameState.peaks) {
+                if (tileCoord == new Vector2(peak.X, peak.Y)) return peak;
+            }
+            return null;
+        }
+
+        public static void Update(GameState gameState) {
+            foreach (var peak in gameState.peaks) {
+                peak.timer -= Raylib.GetFrameTime();
+                if (peak.timer < 0) {
+                    peak.timer = peak.timerTime;
+                    peak.frame = (peak.frame+1)%peak.frameCount;
+                }
+            }
+        }
+
+        public static void Draw(GameState gameState) {
+            foreach (var peak in gameState.peaks)
+            {
+                var tileset = gameState.levelMap.ResolveTilesetForGlobalTileID(peak.GID, out var localTileID);
+
+                var r = tileset.GetSourceRectangleForLocalTileID(localTileID);
+                var srcRect = new Rectangle(r.X, r.Y, r.Width, r.Height);
+
+                var dstRect = new Rectangle(peak.X, peak.Y, r.Width, r.Height);
+
+                var texture = gameState.tilesetTextures[tileset][peak.frame];
+                Raylib.DrawTexturePro(texture, srcRect, dstRect, new Vector2(), 0, Color.White);
             }
         }
     }
@@ -154,65 +280,92 @@ namespace PozemiuRobotas {
             }
         }
 
-        public static void DrawTorches(GameState gameState) {
-            foreach (var torch in gameState.torches)
+        public static bool IsTileSolid(GameState gameState, Vector2 tileCoordinate) {
+            var collisionLayer = gameState.LayerByName<ObjectLayer>("collision")!;
+
+            foreach (var collider in collisionLayer.Objects) {
+                var rect = new Rectangle(collider.X, collider.Y, collider.Width, collider.Height);
+                if (Raylib.CheckCollisionPointRec(tileCoordinate, rect)) return true;
+            }
+
+            gameState.playerState.CurDoorOpened = 0;
+            foreach (var door in gameState.doors) {
+                if (tileCoordinate.X == door.X && tileCoordinate.Y == door.Y) {
+                    if (Door.IsUnlocked(gameState, door.doorID)) {
+                        gameState.playerState.CurDoorOpened = door.doorID;
+                    } else {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+    }
+
+    public class Game {
+        public static void DrawGamePlayState(GameState gameState) {
+            switch (gameState.gamePlayState)
             {
-                var tileset = gameState.levelMap.ResolveTilesetForGlobalTileID(torch.GID, out var localTileID);
+                case GamePlayState.Play: {
+                    Raylib.BeginMode2D(gameState.playerState.camera);
+                    {
+                        TheWorld.DrawTileLayer(gameState, "world");
+                        TheWorld.DrawTileLayer(gameState, "decor");
+                        Torch.Draw(gameState);
+                        Door.Draw(gameState);
+                        Key.Draw(gameState);
+                        Peak.Draw(gameState);
+                        Exit.Draw(gameState);
+                        Player.Draw(gameState);
+                    }
+                    Raylib.EndMode2D();
 
-                var r = tileset.GetSourceRectangleForLocalTileID(localTileID);
-                var srcRect = new Rectangle(r.X, r.Y, r.Width, r.Height);
-                srcRect = FlipRect(torch.FFlags, srcRect);
+                    PostProcess(gameState);
 
-                var dstRect = new Rectangle(torch.X, torch.Y, r.Width, r.Height);
+                    break;
+                }
 
-                var texture = gameState.tilesetTextures[tileset][0];
-                Raylib.DrawTexturePro(texture, srcRect, dstRect, new Vector2(), 0, Color.White);
+                case GamePlayState.Dead: {
+                    Raylib.ClearBackground(Color.DarkGray);
+                    var width = Raylib.GetScreenWidth()/2;
+                    var height = Raylib.GetScreenHeight()/2;
+                    Raylib.DrawText("YOU DIED!", width, height, 24, Color.RayWhite);
+                    Raylib.DrawText("[Press space to restart]", width, height + 24, 24, Color.RayWhite);
+                    break;
+                }
+
+                case GamePlayState.Win: {
+                    Raylib.ClearBackground(Color.DarkGreen);
+                    var width = Raylib.GetScreenWidth()/2;
+                    var height = Raylib.GetScreenHeight()/2;
+                    Raylib.DrawText("YOU WIN!", width, height, 24, Color.RayWhite);
+                    Raylib.DrawText("[Press space to restart]", width, height + 24, 24, Color.RayWhite);
+                    break;
+                }
+
             }
         }
 
-        public static void DrawDoors(GameState gameState) {
-            foreach (var door in gameState.doors)
+        public static void UpdateGamePlayState(GameState gameState) {
+            switch (gameState.gamePlayState)
             {
-                if (!door.visible) continue;
-                var tileset = gameState.levelMap.ResolveTilesetForGlobalTileID(door.GID, out var localTileID);
+                case GamePlayState.Play: {
+                    Player.Update(gameState);
+                    Peak.Update(gameState);
+                    TheWorld.Update(gameState);
+                    break;
+                }
+                case GamePlayState.Dead:
+                case GamePlayState.Win: {
+                    if (Raylib.IsKeyPressed(KeyboardKey.Space)) {
+                        gameState.LoadMapState();
+                        gameState.gamePlayState = GamePlayState.Play;
+                    }
 
-                var r = tileset.GetSourceRectangleForLocalTileID(localTileID);
-                var srcRect = new Rectangle(r.X, r.Y, r.Width, r.Height);
-                var dstRect = new Rectangle(door.X, door.Y, r.Width, r.Height);
-
-                var texture = gameState.tilesetTextures[tileset][0];
-                Raylib.DrawTexturePro(texture, srcRect, dstRect, new Vector2(), 0, Color.White);
+                    break;
+                }
             }
-        }
-
-        public static void DrawKeys(GameState gameState) {
-            foreach (var key in gameState.keys)
-            {
-                var tileset = gameState.levelMap.ResolveTilesetForGlobalTileID(key.GID, out var localTileID);
-
-                var r = tileset.GetSourceRectangleForLocalTileID(localTileID);
-                var srcRect = new Rectangle(r.X, r.Y, r.Width, r.Height);
-                var dstRect = new Rectangle(key.X, key.Y, r.Width, r.Height);
-
-                var texture = gameState.tilesetTextures[tileset][0];
-                Raylib.DrawTexturePro(texture, srcRect, dstRect, new Vector2(), 0, Color.White);
-            }
-        }
-
-        private static Rectangle FlipRect(FlippingFlags FFlags, Rectangle srcRect)
-        {
-            if (FFlags.HasFlag(FlippingFlags.FlippedHorizontally))
-            {
-                // srcRect.X += srcRect.Width;
-                srcRect.Width = -srcRect.Width;
-            }
-            if (FFlags.HasFlag(FlippingFlags.FlippedVertically))
-            {
-                // srcRect.Y += srcRect.Height;
-                srcRect.Height = -srcRect.Height;
-            }
-
-            return srcRect;
         }
 
         public static void PostProcess(GameState gameState) {
@@ -265,28 +418,6 @@ namespace PozemiuRobotas {
             );
             
             Raylib.EndBlendMode();
-        }
-
-        public static bool IsTileSolid(GameState gameState, Vector2 tileCoordinate) {
-            var collisionLayer = gameState.LayerByName<ObjectLayer>("collision")!;
-
-            foreach (var collider in collisionLayer.Objects) {
-                var rect = new Rectangle(collider.X, collider.Y, collider.Width, collider.Height);
-                if (Raylib.CheckCollisionPointRec(tileCoordinate, rect)) return true;
-            }
-
-            gameState.playerState.CurDoorOpened = 0;
-            foreach (var door in gameState.doors) {
-                if (tileCoordinate.X == door.X && tileCoordinate.Y == door.Y) {
-                    if (Door.IsUnlocked(gameState, door.doorID)) {
-                        gameState.playerState.CurDoorOpened = door.doorID;
-                    } else {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
         }
     }
 }
