@@ -4,60 +4,15 @@ using DotTiled.Serialization;
 using Raylib_cs;
 
 namespace PozemiuRobotas {
-    public class PlayerState(uint GID, Vector2 Position) {
-        public uint GID = GID;
-        public Vector2 Position = Position;
-        public List<int> DoorsUnlocked = [];
-        public Camera2D camera;
-
-        public Vector2 TargetPosition = Position;
-        public int LastDoorOpened = 0;
-        public int CurDoorOpened = 0;
-    }
-
-    public class TorchState(uint GID, int X, int Y, FlippingFlags FFlags) {
-        public uint GID = GID;
-        public int X = X, Y = Y; 
-        public FlippingFlags FFlags = FFlags;
-    }
-
-    public class DoorState(uint GID, int doorID, bool visible, int X, int Y) {
-        public uint GID = GID;
-        public int doorID = doorID;
-        public bool visible = visible;
-        public int X = X, Y = Y;
-    }
-
-    public class KeyState(uint GID, int doorID, int X, int Y) {
-        public uint GID = GID;
-        public int doorID = doorID;
-        public int X = X, Y = Y;
-    }
-
-    public class ExitState(uint GID, int X, int Y) {
-        public uint GID = GID;
-        public int X = X, Y = Y;
-    }
-
-    public class PeakState(uint GID, int X, int Y, int frameCount) {
-        public uint GID = GID;
-        public int X = X, Y = Y;
-        public int frameCount = frameCount;
-        public int frame = 0;
-        public readonly float timerTime = 0.1f;
-        public float timer = 0;
-    }
-
-
     public enum GamePlayState {
         Play,
         Dead,
         Win,
     }
 
-    public class GameState {
-        public readonly int tileSize = 16;
-        public readonly int tilesSeen = 10;
+    public class Game {
+        public readonly float tileSize = 16;
+        public readonly float tilesSeen = 10;
 
         public Loader loader = null!;
         public Map levelMap = null!;
@@ -65,90 +20,124 @@ namespace PozemiuRobotas {
         public RenderTexture2D lightMask;
 
         public GamePlayState gamePlayState = GamePlayState.Play;
+        public TheWorld theWorld = null!;
 
-        public List<TorchState> torches = null!;
-        public List<DoorState> doors = null!;
-        public List<KeyState> keys = null!;
-        public List<PeakState> peaks = null!;
-        public ExitState exit = null!;
-
-        public Vector2 spawn;
-        public PlayerState playerState = null!;
-
-        public GameState(string levelTMX)
+        public Game(string levelTMX)
         {
             loader = Loader.DefaultWith(resourceReader: new ResourceLoader());
             levelMap = loader.LoadMap(levelTMX);
             lightMask = Raylib.LoadRenderTexture(Raylib.GetScreenWidth(), Raylib.GetScreenHeight());
 
-
             var TMXDir = Path.GetDirectoryName(levelTMX)!;
             LoadTilesetTextures(TMXDir);
-
-            LoadMapState();
+            LoadTheWorld();
         }
 
-        public void LoadMapState()
+        public void LoadTheWorld()
         {
-            torches = [];
-            doors = [];
-            keys = [];
-            peaks = [];
-            var objectLayer = LayerByName<ObjectLayer>("objects")!;
-            var tileObjects = objectLayer.Objects.OfType<TileObject>();
-
-            ParseTorches(tileObjects);
-            ParseDoors(tileObjects);
-            ParseKeys(tileObjects);
-            ParseExit(tileObjects);
-            ParsePeaks(tileObjects);
-            ParseSpawn(objectLayer.Objects);
-            ParsePlayer(tileObjects);
+            theWorld = new(levelMap, tilesetTextures, tileSize, tilesSeen);
+            theWorld.OnExitEntered = () => gamePlayState = GamePlayState.Win;
+            theWorld.OnPeakEntered = () => gamePlayState = GamePlayState.Dead;
         }
 
-        private void ParseTorches(IEnumerable<TileObject> tileObjects) {
-            var torchObjects = tileObjects.Where(tobj => tobj.Type == "Torch");
-            foreach (var torch in torchObjects) {
-                torches.Add( new TorchState(torch.GID, (int)torch.X, (int)torch.Y, torch.FlippingFlags) );
+        public void Draw() {
+            switch (gamePlayState)
+            {
+                case GamePlayState.Play: {
+                    Raylib.BeginMode2D(theWorld.camera);
+                    theWorld.Draw();
+                    Raylib.EndMode2D();
+
+                    PostProcess();
+
+                    break;
+                }
+
+                case GamePlayState.Dead: {
+                    Raylib.ClearBackground(Color.DarkGray);
+                    var width = Raylib.GetScreenWidth()/2;
+                    var height = Raylib.GetScreenHeight()/2;
+                    Raylib.DrawText("YOU DIED!", width, height, 24, Color.RayWhite);
+                    Raylib.DrawText("[Press space to restart]", width, height + 24, 24, Color.RayWhite);
+                    break;
+                }
+
+                case GamePlayState.Win: {
+                    Raylib.ClearBackground(Color.DarkGreen);
+                    var width = Raylib.GetScreenWidth()/2;
+                    var height = Raylib.GetScreenHeight()/2;
+                    Raylib.DrawText("YOU WIN!", width, height, 24, Color.RayWhite);
+                    Raylib.DrawText("[Press space to restart]", width, height + 24, 24, Color.RayWhite);
+                    break;
+                }
+
             }
         }
 
-        private void ParseDoors(IEnumerable<TileObject> tileObjects) {
-            var doorObjects = tileObjects.Where(tobj => tobj.Type == "Door");
-            foreach (var door in doorObjects) {
-                doors.Add( new DoorState(door.GID, door.GetProperty<IntProperty>("door").Value, door.Visible, (int)door.X, (int)door.Y) );
+        public void Update() {
+            switch (gamePlayState)
+            {
+                case GamePlayState.Play: {
+                    theWorld.Update(Raylib.GetFrameTime());
+                    break;
+                }
+                case GamePlayState.Dead:
+                case GamePlayState.Win: {
+                    if (Raylib.IsKeyPressed(KeyboardKey.Space)) {
+                        LoadTheWorld();
+                        gamePlayState = GamePlayState.Play;
+                    }
+
+                    break;
+                }
             }
         }
 
-        private void ParseKeys(IEnumerable<TileObject> tileObjects) {
-            var keyObjects = tileObjects.Where(tobj => tobj.Type == "Key");
-            foreach (var key in keyObjects) {
-                keys.Add( new KeyState(key.GID, key.GetProperty<IntProperty>("door").Value, (int)key.X, (int)key.Y) );
+        public void PostProcess() {
+            Raylib.BeginTextureMode(lightMask);
+            Raylib.BeginMode2D(theWorld.camera);
+            Raylib.ClearBackground(Color.Black);
+
+            // NOTE: Could use this for a nicer looking light
+            // Raylib.SetShapesTexture
+
+            Raylib.BeginBlendMode(BlendMode.Additive);
+
+            var halfTile = tileSize/2;
+            Raylib.DrawCircleV(
+                Raymath.Vector2AddValue(theWorld.player.position, halfTile),
+                radius:  tileSize*2,
+                color:   new Color(255, 255, 255, 150)
+            );
+            Raylib.DrawCircleV(
+                Raymath.Vector2AddValue(theWorld.player.position, halfTile),
+                radius:  tileSize,
+                color:   new Color(255, 255, 255, 50)
+            );
+
+            foreach (var torch in theWorld.torches) {
+                Raylib.DrawCircleV(
+                    Raymath.Vector2AddValue(torch.position, halfTile),
+                    tileSize+Raylib.GetRandomValue(-2, 2),
+                    new Color(255, 255, 255, 150)
+                );
             }
-        }
 
-        private void ParseExit(IEnumerable<TileObject> tileObjects) {
-            var exitObject = tileObjects.Single(tobj => tobj.Type == "Exit");
-            exit = new ExitState(exitObject.GID, (int)exitObject.X, (int)exitObject.Y);
-        }
+            Raylib.EndBlendMode();
+            Raylib.EndMode2D();
+            Raylib.EndTextureMode();
 
-        private void ParsePeaks(IEnumerable<TileObject> tileObjects) {
-            var peakObjects = tileObjects.Where(tobj => tobj.Type == "Peak");
-            foreach (var peak in peakObjects) {
-                var tileset = levelMap.ResolveTilesetForGlobalTileID(peak.GID, out var localTileID);
-                peaks.Add( new PeakState(peak.GID, (int)peak.X, (int)peak.Y, tileset.TileCount) );
-            }
-        }
+            Raylib.BeginBlendMode(BlendMode.Multiplied);
 
-        private void ParsePlayer(IEnumerable<TileObject> tileObjects) {
-            var playerObject = tileObjects.Single(tobj => tobj.Type == "Player");
-            playerState = new PlayerState(playerObject.GID, spawn);
-            Player.LoadCamera(this);
-        }
-
-        private void ParseSpawn(IEnumerable<DotTiled.Object> objects) {
-            var spawnObject = objects.Single(tobj => tobj.Name == "Spawn");
-            spawn = new Vector2(spawnObject.X, spawnObject.Y);
+            var rect = new Rectangle(Vector2.Zero, lightMask.Texture.Dimensions);
+            Raylib.DrawTextureRec(
+                lightMask.Texture,
+                Util.FlipRectVertical(rect), // Y-flip needed for RenderTextures
+                Vector2.Zero,
+                Color.White
+            );
+            
+            Raylib.EndBlendMode();
         }
 
         private void LoadTilesetTextures(string TMXDir) {
