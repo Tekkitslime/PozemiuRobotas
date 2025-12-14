@@ -105,22 +105,24 @@ namespace PozemiuRobotas {
 
             var halfTile = tileSize/2;
             Raylib.DrawCircleV(
-                Raymath.Vector2AddValue(theWorld.player.position, halfTile),
+                Raymath.Vector2AddValue(theWorld.player.Position, halfTile),
                 radius:  tileSize*2,
                 color:   new Color(255, 255, 255, 150)
             );
             Raylib.DrawCircleV(
-                Raymath.Vector2AddValue(theWorld.player.position, halfTile),
+                Raymath.Vector2AddValue(theWorld.player.Position, halfTile),
                 radius:  tileSize,
                 color:   new Color(255, 255, 255, 50)
             );
 
-            foreach (var torch in theWorld.torches) {
-                Raylib.DrawCircleV(
-                    Raymath.Vector2AddValue(torch.position, halfTile),
-                    tileSize+Raylib.GetRandomValue(-2, 2),
-                    new Color(255, 255, 255, 150)
-                );
+            foreach (var GLEntity in theWorld.gameLoopObjects)
+            {
+                if (GLEntity is Torch t)
+                    Raylib.DrawCircleV(
+                        Raymath.Vector2AddValue(t.Position, halfTile),
+                        tileSize+Raylib.GetRandomValue(-2, 2),
+                        new Color(255, 255, 255, 150)
+                    );
             }
 
             Raylib.EndBlendMode();
