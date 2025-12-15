@@ -11,26 +11,24 @@ namespace PozemiuRobotas {
     }
 
     public class Game {
-        public readonly float tileSize = 16;
-        public readonly float tilesSeen = 10;
+        private readonly float tileSize = 16;
+        private readonly float tilesSeen = 10;
+        private readonly string levelTMX;
 
-        public Loader loader = null!;
-        public Map levelMap = null!;
-        public Dictionary<Tileset, List<Texture2D>> tilesetTextures = null!;
-        public RenderTexture2D lightMask;
+        private Loader loader = null!;
+        private Map levelMap = null!;
+        private Dictionary<Tileset, List<Texture2D>> tilesetTextures = [];
+        private RenderTexture2D lightMask;
 
-        public GamePlayState gamePlayState = GamePlayState.Play;
-        public TheWorld theWorld = null!;
+        private GamePlayState gamePlayState = GamePlayState.Play;
+        private TheWorld theWorld = null!;
 
-        public Game(string levelTMX)
+        public Game(string levelTMX, IResourceReader? resourceReader = null)
         {
-            loader = Loader.DefaultWith(resourceReader: new ResourceLoader());
-            levelMap = loader.LoadMap(levelTMX);
-            lightMask = Raylib.LoadRenderTexture(Raylib.GetScreenWidth(), Raylib.GetScreenHeight());
-
-            var TMXDir = Path.GetDirectoryName(levelTMX)!;
-            LoadTilesetTextures(TMXDir);
-            LoadTheWorld();
+            this.levelTMX = levelTMX;
+            this.loader = Loader.DefaultWith(resourceReader: resourceReader);
+            this.levelMap = loader.LoadMap(levelTMX);
+            this.lightMask = Raylib.LoadRenderTexture(Raylib.GetScreenWidth(), Raylib.GetScreenHeight());
         }
 
         public void LoadTheWorld()
@@ -74,11 +72,11 @@ namespace PozemiuRobotas {
             }
         }
 
-        public void Update() {
+        public void Update(float dt) {
             switch (gamePlayState)
             {
                 case GamePlayState.Play: {
-                    theWorld.Update(Raylib.GetFrameTime());
+                    theWorld.Update(dt);
                     break;
                 }
                 case GamePlayState.Dead:
@@ -92,6 +90,7 @@ namespace PozemiuRobotas {
                 }
             }
         }
+
 
         public void PostProcess() {
             Raylib.BeginTextureMode(lightMask);
@@ -142,7 +141,9 @@ namespace PozemiuRobotas {
             Raylib.EndBlendMode();
         }
 
-        private void LoadTilesetTextures(string TMXDir) {
+        public void LoadTilesetTextures() {
+            var TMXDir = Path.GetDirectoryName(levelTMX)!;
+
             tilesetTextures = [];
             var loader = new ResourceLoader();
             foreach (var tileset in levelMap.Tilesets) {
@@ -173,5 +174,7 @@ namespace PozemiuRobotas {
         public LayerType? LayerByName<LayerType>(string layerName) where LayerType : BaseLayer {
             return levelMap.Layers.OfType<LayerType>().Single(l => l.Name == layerName);
         }
+
+        public TheWorld GetTheWorld() => theWorld;
     }
 }

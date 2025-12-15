@@ -4,7 +4,7 @@ using Raylib_cs;
 
 namespace PozemiuRobotas
 {
-    public class Player(TileObject tobj, Texture2D texture, Rectangle srcRect) : GameEntity(tobj, texture, srcRect)
+    public class Player(TileObject tobj, Texture2D? texture, Rectangle? srcRect) : GameEntity(tobj, texture, srcRect)
     {
         private readonly int tSize = 16;
         public List<int> DoorsUnlocked = [];

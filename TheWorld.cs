@@ -57,20 +57,20 @@ namespace PozemiuRobotas {
                 var tileset = map.ResolveTilesetForGlobalTileID(tobj.GID, out var localTileID);
                 var sr = tileset.GetSourceRectangleForLocalTileID(localTileID);
                 var srcRect = Util.DotTiledRectToRaylibRect(sr);
-                var textures = tilesetTextures[tileset];
+                var textures = tilesetTextures.GetValueOrDefault(tileset);
 
                 switch (tobj.Type)
                 {
                     case "Torch": {
-                        gameLoopObjects.Add(new Torch(tobj, textures[0], srcRect));
+                        gameLoopObjects.Add(new Torch(tobj, textures?[0], srcRect));
                         break;
                     }
                     case "Key": {
-                        gameLoopObjects.Add(new Key(tobj, textures[0], srcRect));
+                        gameLoopObjects.Add(new Key(tobj, textures?[0], srcRect));
                         break;
                     }
                     case "Door": {
-                        gameLoopObjects.Add(new Door(tobj, textures[0], srcRect));
+                        gameLoopObjects.Add(new Door(tobj, textures?[0], srcRect));
                         break;
                     }
                     case "Peak": {
@@ -78,7 +78,7 @@ namespace PozemiuRobotas {
                         break;
                     }
                     case "Player": {
-                        this.player = new(tobj, textures[0], srcRect)
+                        this.player = new(tobj, textures?[0], srcRect)
                             {
                                 OnMoved = this.OnMoved,
                                 IsTileSolid = this.IsTileSolid
@@ -88,7 +88,7 @@ namespace PozemiuRobotas {
                         break;
                     }
                     case "Exit": {
-                        this.exit = new(tobj, textures[0], srcRect);
+                        this.exit = new(tobj, textures?[0], srcRect);
                         gameLoopObjects.Add(this.exit);
                         break;
                     }
@@ -185,8 +185,10 @@ namespace PozemiuRobotas {
                     var srcRect = new Rectangle(r.X, r.Y, r.Width, r.Height);
                     var dstRect = srcRect with { X = x*r.Width, Y = y*r.Height };
 
-                    var texture = tilesetTextures[tileset][0];
-                    Raylib.DrawTexturePro(texture, srcRect, dstRect, new Vector2(), 0, Color.White);
+                    var texture = tilesetTextures.GetValueOrDefault(tileset)?[0];
+
+                    if (texture == null) return;
+                    Raylib.DrawTexturePro((Texture2D)texture!, srcRect, dstRect, new Vector2(), 0, Color.White);
                 }
             }
         }

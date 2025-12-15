@@ -9,7 +9,9 @@ namespace PozemiuRobotas {
             Raylib.InitWindow(800, 600, "Požemių robotas");
             Raylib.SetTargetFPS(24);
 
-            var game = new Game("res/levels/level1.tmx");
+            var game = new Game("res/levels/level1.tmx", new ResourceLoader());
+            // game.LoadTilesetTextures();
+            game.LoadTheWorld();
 
             var background = new Color(0x25, 0x13, 0x1a, 0xff);
             while (!Raylib.WindowShouldClose()) {
@@ -20,7 +22,7 @@ namespace PozemiuRobotas {
 
                 Raylib.EndDrawing();
 
-                game.Update();
+                game.Update(Raylib.GetFrameTime());
             }
 
             Raylib.CloseWindow();

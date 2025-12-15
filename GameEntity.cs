@@ -11,11 +11,11 @@ namespace PozemiuRobotas
         public bool IsMarkedForRemoval { get; set; }
     }
 
-    public abstract class GameEntity(TileObject tobj, Texture2D Texture, Rectangle SrcRect) : IGameLoopObject
+    public abstract class GameEntity(TileObject tobj, Texture2D? Texture, Rectangle? SrcRect) : IGameLoopObject
     {
         public Vector2 Position { get; set; } = new(tobj.X, tobj.Y);
-        public Texture2D Texture { get; set; } = Texture;
-        public Rectangle SrcRect { get; set; } = SrcRect;
+        public Texture2D? Texture { get; set; } = Texture;
+        public Rectangle? SrcRect { get; set; } = SrcRect;
 
         public bool Visible { get; set; } = tobj.Visible;
         public FlippingFlags FlippingFlags { get; set; } = tobj.FlippingFlags;
@@ -24,10 +24,10 @@ namespace PozemiuRobotas
 
         public virtual void Draw()
         {
-            if (!Visible) return;
-            var sourceRectangle = Util.FlipRect(FlippingFlags, SrcRect);
+            if (!Visible || Texture == null || SrcRect == null) return;
+            var sourceRectangle = Util.FlipRect(FlippingFlags, (Rectangle)SrcRect!);
 
-            Raylib.DrawTextureRec(Texture, sourceRectangle, Position, Color.White);
+            Raylib.DrawTextureRec((Texture2D)Texture!, sourceRectangle, Position, Color.White);
         }
 
         public virtual void Update(float dt)
@@ -44,7 +44,7 @@ namespace PozemiuRobotas
         public bool Visible { get; set; } = tobj.Visible;
         public FlippingFlags FlippingFlags { get; set; } = tobj.FlippingFlags;
 
-        public int FrameCount { get; set; } = Textures.Count;
+        public int FrameCount { get; set; } = Textures?.Count ?? 0;
         public int Frame { get; set; } = 0;
         public float TimerTime { get; set; } = 0.1f;
         public float Timer { get; set; } = 0;
@@ -53,14 +53,17 @@ namespace PozemiuRobotas
 
         public virtual void Draw()
         {
-            if (!Visible) return;
-            var texture = Textures[Frame];
-            var sourceRectangle = Util.FlipRect(FlippingFlags, new Rectangle(Vector2.Zero, texture.Dimensions));
+            if (!Visible || (Textures?.Count ?? 0) == 0) return;
+            var texture = Textures?[Frame];
+            var sourceRectangle = Util.FlipRect(FlippingFlags, new Rectangle(Vector2.Zero, texture?.Dimensions ?? Vector2.Zero));
 
-            Raylib.DrawTextureRec(texture, sourceRectangle, Position, Color.White);
+            if (texture == null) return;
+            Raylib.DrawTextureRec((Texture2D)texture, sourceRectangle, Position, Color.White);
         }
 
         public virtual void Update(float dt) {
+            if (FrameCount == 0) return;
+            
             Timer -= dt;
             if (Timer < 0)
             {
